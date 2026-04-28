@@ -14,7 +14,7 @@ vi.mock("../../src/middlewares/logger.js", () => ({
     info: vi.fn(),
   },
 }));
-
+//dfsf
 import { registerService } from "../../src/services/authService.js";
 
 async function captureError<T>(promise: Promise<T>): Promise<unknown> {
