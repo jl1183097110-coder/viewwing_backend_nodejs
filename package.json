@@ -9,6 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:migrate": "pnpm exec drizzle-kit migrate --config=drizzle.config.ts",
     "db:migrate:local": "dotenvx run -- pnpm exec drizzle-kit migrate --config=drizzle.config.ts",
+    "db:push": "pnpm exec drizzle-kit push --config=drizzle.config.ts",
+    "db:push:local": "dotenvx run -- pnpm exec drizzle-kit push --config=drizzle.config.ts",
     "db:check": "tsx src/scripts/checkDb.ts",
     "db:seed": "tsx src/scripts/seedData.ts",
     "db:seed:prod": "node dist/scripts/seedData.js",
