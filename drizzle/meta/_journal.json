@@ -8,6 +8,13 @@
       "when": 1777351338937,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777604355299,
+      "tag": "0001_dashing_iron_fist",
+      "breakpoints": true
     }
   ]
 }

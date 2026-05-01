@@ -30,7 +30,7 @@ export const usersTable = pgTable("users", {
   passwordHash: varchar({ length: 255 }).notNull(),
   role: userRole("role").notNull().default("user"),
   avatar_url: varchar({ length: 500 }).default(
-    "https://www.flaticon.com/free-icon/people_14643189",
+    "default",
   ),
   bio: varchar({ length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow().notNull(),
