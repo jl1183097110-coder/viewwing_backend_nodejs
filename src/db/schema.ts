@@ -51,7 +51,8 @@ export const locationsTable = pgTable(
   "location",
   {
     id: serial("id").primaryKey(),
-    name: varchar({ length: 255 }).notNull(),
+    // all location names use English now, just use the "name" field and keep "nameEn" for backward compatibility
+    name: varchar({ length: 255 }).notNull().unique(),
     nameEn: varchar({ length: 255 }),
     regionId: integer("region_id")
       .references((): any => regionTable.id)

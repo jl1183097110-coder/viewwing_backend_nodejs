@@ -198,6 +198,7 @@ export const searchLocationService = async (
   return runLocationListQuery(params, conditions, desc(locationsTable.updatedAt));
 };
 
+//not use temprarily
 export const getNearLocationService = async (
   params: z.infer<typeof getNearLocationSchema>,
 ) => {
@@ -415,6 +416,20 @@ export const createLocationService = async (
     throw new AppError(404, "NOT_FOUND", "Region not found");
   }
 
+  const existingLocationRows = await db
+    .select({ id: locationsTable.id })
+    .from(locationsTable)
+    .where(eq(locationsTable.name, input.name))
+    .limit(1);
+
+  if (existingLocationRows.length > 0) {
+    logger.warn(
+      { action: "location.create", userId, locationName: input.name },
+      "create location failed: location with same name already exists",
+    );
+    throw new AppError(409, "ALREADY_EXISTS", "Location with same name already exists");
+  }
+
   const [created] = await db
     .insert(locationsTable)
     .values({
@@ -516,6 +531,28 @@ export const updateLocationService = async (
   const nextCenterLng = input.center_point
     ? input.center_point.lng
     : existing.center_lng;
+
+  const existingLocationWithSameNameRows = await db
+    .select({ id: locationsTable.id })
+    .from(locationsTable)
+    .where(eq(locationsTable.name, input.name ?? existing.name))
+    .limit(1);
+
+  if (existingLocationWithSameNameRows.length > 0) {
+    const existingLocationWithSameName = existingLocationWithSameNameRows[0];
+    if (existingLocationWithSameName.id !== replacesId) {
+      logger.warn(
+        {
+          action: "location.update",
+          userId,
+          replacesId,
+          name: input.name ?? existing.name,
+        },
+        "update location failed: location with same name already exists",
+      );
+      throw new AppError(409, "ALREADY_EXISTS", "Location with same name already exists");
+    }
+  }
 
   const [updated] = await db
     .update(locationsTable)
