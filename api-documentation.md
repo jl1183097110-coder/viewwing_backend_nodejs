@@ -491,6 +491,8 @@ GET
 | page      | number | ❌   | 页码，默认 1                                          |
 | pageSize  | number | ❌   | 每页数量，默认 20                                     |
 
+返回的每个地点对象包含 `key_points` 字段，值为字符串数组；如无内容则可能为 `null`。
+
 响应
 
 ：
@@ -512,6 +514,7 @@ GET
         "region_id": 7,
         "category": "mountain",
         "description": "日本最高峰...",
+        "key_points": ["最佳观赏期：4-10月", "需要登山许可", "建议2天行程"],
         "cover_url": "https://example.com/fuji.jpg",
         "center_point": {
           "lat": 35.3606,
@@ -551,9 +554,11 @@ GET
 | page      | number | ❌   | 页码       |
 | pageSize  | number | ❌   | 每页数量   |
 
+返回的每个地点对象包含 `key_points` 字段，值为字符串数组；如无内容则可能为 `null`。
+
 响应
 
-：同 3.1（包含 `cover_url` 字段），顶层 `message` 为 `search locations successfully`
+：同 3.1（包含 `cover_url` 和 `key_points` 字段），顶层 `message` 为 `search locations successfully`
 
 ---
 

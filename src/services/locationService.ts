@@ -26,6 +26,7 @@ type LocationListRow = {
   region_id: number;
   category: string;
   description: string | null;
+  key_points: string[] | null;
   cover_url: string;
   center_point: { lat: number; lng: number };
   submitted_by_id: number;
@@ -39,6 +40,7 @@ type LocationListItem = {
   region_id: number;
   category: string;
   description: string | null;
+  key_points: string[] | null;
   cover_url: string;
   center_point: { lat: number; lng: number };
   submitted_by: {
@@ -108,6 +110,7 @@ const mapLocationListRows = (rows: LocationListRow[]): LocationListItem[] =>
     region_id: row.region_id,
     category: row.category,
     description: row.description,
+    key_points: row.key_points,
     cover_url: row.cover_url,
     center_point: row.center_point,
     submitted_by: {
@@ -132,6 +135,7 @@ const runLocationListQuery = async (
       region_id: locationsTable.regionId,
       category: locationsTable.category,
       description: locationsTable.description,
+      key_points: locationsTable.keyPoints,
       cover_url: locationsTable.coverUrl,
       center_point: sql<{ lat: number; lng: number }>`
         json_build_object('lat', ${locationsTable.centerLat}, 'lng', ${locationsTable.centerLng})
