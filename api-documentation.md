@@ -986,6 +986,8 @@ DELETE
 
 - 删除 `location` 后，将按外键配置级联删除其关联的 `spots`、`posts`、`media`、`comments`、`favorites`
 
+---
+
 ## 4. 景点模块
 
 ### 4.1 创建景点
@@ -1578,7 +1580,6 @@ POST
 ---
 
 ### 6.3 删除媒体关联
-
 DELETE
 
 `/posts/:post_id/media/:media_id`
@@ -1620,6 +1621,246 @@ DELETE
 ：
 
 - `NOT_FOUND`：媒体或内容不存在
+- `FORBIDDEN`：无权限删除
+
+---
+
+### 6.4 关联媒体到景点
+
+POST
+
+`/spots/:spot_id/media`
+
+前端完成 R2 上传后，将媒体关联到景点。
+
+认证
+
+：✅ 必需
+
+说明
+
+：只有景点提交者本人或管理员才能关联媒体
+
+路径参数
+
+：
+
+- `spot_id`：景点 ID
+
+请求体
+
+：
+
+```json
+{
+  "media_type": "photo",
+  "url": "https://cdn.example.com/media/1/2026/03/abc123-spot.jpg",
+  "object_key": "media/1/2026/03/abc123-spot.jpg",
+  "thumbnail_url": "https://cdn.example.com/media/1/2026/03/abc123-spot_thumb.jpg",
+  "display_order": 0,
+  "file_size": 2458624
+}
+```
+
+请求体约束
+
+：同 6.2（关联媒体到内容）
+
+响应
+
+（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 10,
+    "spot_id": 1,
+    "media_type": "photo",
+    "url": "https://cdn.example.com/media/1/2026/03/abc123-spot.jpg",
+    "display_order": 0
+  },
+  "message": "Media added successfully"
+}
+```
+
+安全验证
+
+：
+
+- `spot_id` 必须是合法正整数
+- 只有景点提交者本人或管理员可以添加媒体
+- `object_key` 必须以 `media/{当前用户ID}/` 开头
+- `url` 必须与 `object_key` 一致（基于 `R2_PUBLIC_BASE_URL` 拼接）
+
+错误
+
+：
+
+- `NOT_FOUND`：景点不存在
+- `FORBIDDEN`：无权限操作
+- `VALIDATION_ERROR`：参数格式错误
+
+---
+
+### 6.5 删除景点媒体关联
+
+DELETE
+
+`/spots/:spot_id/media/:media_id`
+
+删除景点的媒体关联记录。
+
+认证
+
+：✅ 必需
+
+路径参数
+
+：
+
+- `spot_id`：景点 ID
+- `media_id`：媒体 ID
+
+响应
+
+（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "delete success"
+  },
+  "message": "媒体删除成功"
+}
+```
+
+错误
+
+：
+
+- `NOT_FOUND`：媒体或景点不存在，或媒体不属于该景点
+- `FORBIDDEN`：无权限删除
+
+---
+
+### 6.6 关联媒体到地点
+
+POST
+
+`/locations/:location_id/media`
+
+前端完成 R2 上传后，将媒体关联到地点。
+
+认证
+
+：✅ 必需
+
+说明
+
+：只有地点提交者本人或管理员才能关联媒体
+
+路径参数
+
+：
+
+- `location_id`：地点 ID
+
+请求体
+
+：
+
+```json
+{
+  "media_type": "photo",
+  "url": "https://cdn.example.com/media/1/2026/03/abc123-location.jpg",
+  "object_key": "media/1/2026/03/abc123-location.jpg",
+  "thumbnail_url": "https://cdn.example.com/media/1/2026/03/abc123-location_thumb.jpg",
+  "display_order": 0,
+  "file_size": 2458624
+}
+```
+
+请求体约束
+
+：同 6.2（关联媒体到内容）
+
+响应
+
+（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 20,
+    "location_id": 1,
+    "media_type": "photo",
+    "url": "https://cdn.example.com/media/1/2026/03/abc123-location.jpg",
+    "display_order": 0
+  },
+  "message": "Media added successfully"
+}
+```
+
+安全验证
+
+：
+
+- `location_id` 必须是合法正整数
+- 只有地点提交者本人或管理员可以添加媒体
+- `object_key` 必须以 `media/{当前用户ID}/` 开头
+- `url` 必须与 `object_key` 一致（基于 `R2_PUBLIC_BASE_URL` 拼接）
+
+错误
+
+：
+
+- `NOT_FOUND`：地点不存在
+- `FORBIDDEN`：无权限操作
+- `VALIDATION_ERROR`：参数格式错误
+
+---
+
+### 6.7 删除地点媒体关联
+
+DELETE
+
+`/locations/:location_id/media/:media_id`
+
+删除地点的媒体关联记录。
+
+认证
+
+：✅ 必需
+
+路径参数
+
+：
+
+- `location_id`：地点 ID
+- `media_id`：媒体 ID
+
+响应
+
+（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "delete success"
+  },
+  "message": "媒体删除成功"
+}
+```
+
+错误
+
+：
+
+- `NOT_FOUND`：媒体或地点不存在，或媒体不属于该地点
 - `FORBIDDEN`：无权限删除
 
 ---
@@ -1808,17 +2049,27 @@ DELETE
 
 ## 8. 收藏模块
 
+支持收藏三种实体类型：`post`（内容）、`spot`（景点）、`location`（地点）。
+
 ### 8.1 获取收藏列表
 
 GET
 
 `/favourites`
 
-获取当前用户的收藏景点列表。
+获取当前用户的收藏列表（混合类型）。
 
 认证
 
 ：✅ 必需
+
+查询参数
+
+：
+
+| 参数 | 类型   | 必需 | 说明                                         |
+| ---- | ------ | ---- | -------------------------------------------- |
+| type | string | ❌   | 按类型过滤（`post` / `spot` / `location`） |
 
 响应
 
@@ -1830,16 +2081,30 @@ GET
   "data": [
     {
       "id": 1,
-      "spot": {
-        "id": 1,
-        "name": "河口湖",
-        "description": "一个美丽的湖",
-        "center_point": {
-          "lat": 35.3606,
-          "lng": 138.7274
-        }
-      },
+      "type": "spot",
+      "target_id": 1,
+      "name": "河口湖",
+      "description": "一个美丽的湖",
+      "cover_image": "https://example.com/spot-cover.jpg",
       "created_at": "2024-01-18T14:00:00Z"
+    },
+    {
+      "id": 2,
+      "type": "post",
+      "target_id": 15,
+      "name": "富士山攀登攻略",
+      "description": "从五合目凌晨出发...",
+      "cover_image": null,
+      "created_at": "2024-01-20T10:00:00Z"
+    },
+    {
+      "id": 3,
+      "type": "location",
+      "target_id": 1,
+      "name": "富士山",
+      "description": "日本最高峰...",
+      "cover_image": "https://example.com/fuji.jpg",
+      "created_at": "2024-01-22T08:00:00Z"
     }
   ],
   "message": "Favourites retrieved successfully"
@@ -1850,17 +2115,19 @@ GET
 
 ：
 
-- 仅返回当前用户收藏且 `content_status = approved` 的景点
+- 仅返回当前用户收藏且目标实体 `status = approved` 的记录
+- 按 `created_at` 降序排列
+- 可通过 `type` 查询参数过滤特定类型
 
 ---
 
-### 8.2 收藏景点
+### 8.2 添加收藏
 
 POST
 
 `/favourites`
 
-收藏一个景点。
+收藏一个实体（内容、景点或地点）。
 
 认证
 
@@ -1872,20 +2139,31 @@ POST
 
 ```json
 {
-  "spot_id": 1
+  "type": "spot",
+  "id": 1
 }
 ```
 
-响应
+参数说明
 
 ：
+
+| 参数 | 类型   | 必需 | 说明                                         |
+| ---- | ------ | ---- | -------------------------------------------- |
+| type | string | ✅   | 目标类型（`post` / `spot` / `location`）   |
+| id   | number | ✅   | 目标实体 ID（1–999999）                     |
+
+响应
+
+（201）：
 
 ```json
 {
   "success": true,
   "data": {
     "id": 5,
-    "spot_id": 1,
+    "type": "spot",
+    "target_id": 1,
     "created_at": "2024-01-25T10:00:00Z"
   },
   "message": "Favourite added successfully"
@@ -1896,8 +2174,9 @@ POST
 
 ：
 
-- `ALREADY_EXISTS`: 已收藏过该景点
-- `NOT_FOUND`: 景点不存在
+- `ALREADY_EXISTS`: 已收藏过该实体
+- `NOT_FOUND`: 目标实体不存在
+- `VALIDATION_ERROR`: 参数格式错误
 
 ---
 
@@ -1907,7 +2186,7 @@ DELETE
 
 `/favourites`
 
-取消收藏某个景点。
+取消收藏某个实体。
 
 认证
 
@@ -1919,13 +2198,23 @@ DELETE
 
 ```json
 {
-  "spot_id": 1
+  "type": "spot",
+  "id": 1
 }
 ```
 
-响应
+参数说明
 
 ：
+
+| 参数 | 类型   | 必需 | 说明                                         |
+| ---- | ------ | ---- | -------------------------------------------- |
+| type | string | ✅   | 目标类型（`post` / `spot` / `location`）   |
+| id   | number | ✅   | 目标实体 ID（1–999999）                     |
+
+响应
+
+（200）：
 
 ```json
 {
@@ -1934,6 +2223,55 @@ DELETE
   "message": "Favourite removed successfully"
 }
 ```
+
+错误
+
+：
+
+- `NOT_FOUND`: 收藏记录不存在
+
+---
+
+### 8.4 检查是否已收藏
+
+GET
+
+`/favourites/check?type=spot&id=1`
+
+检查当前用户是否已收藏指定实体。
+
+认证
+
+：✅ 必需
+
+查询参数
+
+：
+
+| 参数 | 类型   | 必需 | 说明                                         |
+| ---- | ------ | ---- | -------------------------------------------- |
+| type | string | ✅   | 目标类型（`post` / `spot` / `location`）   |
+| id   | number | ✅   | 目标实体 ID（1–999999）                     |
+
+响应
+
+（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "isFavourited": true
+  },
+  "message": "Favourite check successful"
+}
+```
+
+错误
+
+：
+
+- `VALIDATION_ERROR`: 参数格式错误
 
 ---
 
@@ -2036,7 +2374,7 @@ GET
 
 `/favourites`
 
-获取当前用户的收藏列表。
+获取当前用户的收藏列表（支持按 `type` 过滤）。
 
 认证
 

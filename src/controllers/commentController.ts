@@ -12,7 +12,7 @@ import {
   editCommentSchema,
   getPostCommentsParamsSchema,
   getPostCommentsQuerySchema,
-} from "../utils/zodschemas.js";
+} from "../utils/apiSchemas.js";
 import { AppError } from "../utils/error.js";
 import { sendSuccessResponse } from "../utils/response.js";
 

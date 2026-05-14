@@ -1,5 +1,5 @@
 import { regionTable } from "../db/schema.js";
-import { createRegionSchema } from "../utils/zodschemas.js";
+import { createRegionSchema } from "../utils/apiSchemas.js";
 import { db } from "../drizzle.js";
 import { z } from "zod";
 import { and, eq, inArray, isNull } from "drizzle-orm";

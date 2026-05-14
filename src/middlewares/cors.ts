@@ -6,7 +6,7 @@ import type { RequestHandler } from "express";
 function parseAllowedOrigins(raw?: string): string[] {
   // 本地开发默认放行 Vite 常用地址，避免未配置时前端直接被浏览器拦截。
   if (!raw) {
-    return ["http://localhost:5173", "http://127.0.0.1:5173","http://127.0.0.1:5174"];
+    return ["http://localhost:5173", "http://127.0.0.1:5174"];
   }
 
   return raw
@@ -18,7 +18,7 @@ function parseAllowedOrigins(raw?: string): string[] {
 const allowedOrigins = parseAllowedOrigins(process.env.CORS_ORIGIN);
 
 export const corsMiddleware: RequestHandler = (req, res, next) => {
-  const origin: string | undefined = req.headers.origin
+  const origin: string | undefined = req.headers.origin;
 
   // 只有请求来源命中白名单时，才回写对应的 CORS 头。
   // 这里不能在允许携带 cookie/authorization 时使用 `*`。

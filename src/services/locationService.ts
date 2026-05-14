@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import {
   locationsTable,
@@ -18,7 +18,7 @@ import {
   getNearLocationSchema,
   searchLocationSchema,
   updateLocationSchema,
-} from "../utils/zodschemas.js";
+} from "../utils/apiSchemas.js";
 
 type LocationListRow = {
   id: number;
@@ -689,7 +689,7 @@ export const getLocationPostsService = async (
             display_order: mediaTable.displayOrder,
           })
           .from(mediaTable)
-          .where(inArray(mediaTable.postId, postIds))
+          .where(and(isNotNull(mediaTable.postId), inArray(mediaTable.postId, postIds)))
           .orderBy(mediaTable.displayOrder);
 
   const mediaByPostId = new Map<
@@ -698,6 +698,7 @@ export const getLocationPostsService = async (
   >();
 
   for (const media of mediaRows) {
+    if (media.post_id == null) continue;
     const list = mediaByPostId.get(media.post_id) ?? [];
     list.push({
       media_type: media.media_type,

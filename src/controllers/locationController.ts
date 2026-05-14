@@ -22,7 +22,7 @@ import {
   getNearLocationSchema,
   searchLocationSchema,
   updateLocationSchema,
-} from "../utils/zodschemas.js";
+} from "../utils/apiSchemas.js";
 import { sendSuccessResponse } from "../utils/response.js";
 
 export const getLocations: RequestHandler = async (req, res) => {

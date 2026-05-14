@@ -1,4 +1,4 @@
-import { createRegionSchema, getSubRegionSchema, getPathSchema } from "../utils/zodschemas.js";
+import { createRegionSchema, getSubRegionSchema, getPathSchema } from "../utils/apiSchemas.js";
 import type { RequestHandler } from "express";
 import { sendSuccessResponse } from "../utils/response.js";
 import { createRegionService, getSubRegionService, getPathService } from "../services/regionService.js";

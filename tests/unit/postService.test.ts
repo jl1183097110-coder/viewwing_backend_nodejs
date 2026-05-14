@@ -142,9 +142,13 @@ describe("postService", () => {
     });
 
     it("should allow admin to update post even if not author", async () => {
-      // 1st query: author lookup (different user)
-      mockDb.setResult([{ submittedBy: 999 }]);
-      // 2nd query: update returning
+      // 1st query: post lookup (different user owns it)
+      mockDb.setResult([{ id: 1, submittedBy: 999, spotId: 10 }]);
+      // 2nd query: ensureLocationExists(100) → getLocationById
+      mockDb.setResult([{ id: 100 }]);
+      // 3rd query: ensureSpotExists(10) → getSpotById
+      mockDb.setResult([{ id: 10, locationId: 100 }]);
+      // 4th query: update returning
       mockDb.setResult([
         { id: 1, status: "approved", message: "Post updated successfully" },
       ]);

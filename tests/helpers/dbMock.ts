@@ -1,13 +1,16 @@
 import { vi } from "vitest";
 
 type MockResult = any[] | undefined;
+type QueueEntry =
+  | { kind: "result"; value: MockResult }
+  | { kind: "throw"; error: Error };
 
 /**
  * Chainable mock for Drizzle ORM query builder
  * Methods return the mock object for chaining, which is thenable
  */
 export function createMockDb() {
-  let resultQueue: MockResult[] = [];
+  let resultQueue: QueueEntry[] = [];
   let shouldThrow: Error | null = null;
   let callCount = 0;
 
@@ -46,9 +49,12 @@ export function createMockDb() {
         ),
       ).catch(onRejected);
     }
-    const result = resultQueue[callCount];
+    const entry = resultQueue[callCount];
     callCount++;
-    return Promise.resolve(result).then(onFulfilled, onRejected);
+    if (entry.kind === "throw") {
+      return Promise.reject(entry.error).catch(onRejected);
+    }
+    return Promise.resolve(entry.value).then(onFulfilled, onRejected);
   };
 
   const reset = () => {
@@ -63,11 +69,11 @@ export function createMockDb() {
   };
 
   const setResult = (result: MockResult) => {
-    resultQueue.push(result);
+    resultQueue.push({ kind: "result", value: result });
   };
 
   const setThrow = (error: Error) => {
-    shouldThrow = error;
+    resultQueue.push({ kind: "throw", error });
   };
 
   return {

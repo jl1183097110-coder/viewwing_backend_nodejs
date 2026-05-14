@@ -116,7 +116,9 @@ CREATE TYPE media_type AS ENUM ('photo', 'video');
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | `id` | SERIAL | PK | 媒体 ID |
-| `post_id` | INTEGER | FK -> `posts.id`, NOT NULL | 所属内容 |
+| `post_id` | INTEGER | FK -> `posts.id` ON DELETE CASCADE, NULL | 所属内容（可选） |
+| `spot_id` | INTEGER | FK -> `spots.id` ON DELETE CASCADE, NULL | 所属景点（可选） |
+| `location_id` | INTEGER | FK -> `location.id` ON DELETE CASCADE, NULL | 所属地点（可选） |
 | `object_key` | VARCHAR(500) | NOT NULL | 对象存储 key |
 | `media_type` | `media_type` | NOT NULL | 媒体类型 |
 | `url` | VARCHAR(500) | NOT NULL | 文件地址 |
@@ -125,13 +127,27 @@ CREATE TYPE media_type AS ENUM ('photo', 'video');
 | `display_order` | INTEGER | DEFAULT `0` | 展示顺序 |
 | `created_at` | TIMESTAMP | NOT NULL | 创建时间 |
 
+约束:
+
+- `CHECK (media_single_owner_check)`: 恰好一个 FK 非空
+  ```sql
+  (CASE WHEN post_id IS NOT NULL THEN 1 ELSE 0 END +
+   CASE WHEN spot_id IS NOT NULL THEN 1 ELSE 0 END +
+   CASE WHEN location_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+  ```
+- `INDEX media_post_display_order_idx (post_id, display_order) WHERE post_id IS NOT NULL`
+- `INDEX media_spot_display_order_idx (spot_id, display_order) WHERE spot_id IS NOT NULL`
+- `INDEX media_location_display_order_idx (location_id, display_order) WHERE location_id IS NOT NULL`
+
 业务约束：
 
+- 采用多列可空 FK + CHECK 约束实现多态媒体关联（post / spot / location）
 - `POST /media/presign` 与 `POST /posts/:post_id/media` 都依赖 `R2_PUBLIC_BASE_URL`，该配置为必填
-- 关联媒体时，只有 `posts.submitted_by` 对应的作者本人或管理员可以写入 `media`
+- 关联媒体时，只有目标实体的 `submitted_by` 对应的作者本人或管理员可以写入 `media`
 - `url` 必须与 `object_key` 基于 `R2_PUBLIC_BASE_URL` 拼接后的公开地址一致
 - `file_size` 在接口层为必填，落库到 `media.file_size`
 - 删除 media 关联记录不会同步删除对象存储文件
+- 删除目标实体时，关联的 media 记录级联删除
 
 ### comments
 
@@ -156,13 +172,29 @@ CREATE TYPE media_type AS ENUM ('photo', 'video');
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | `id` | SERIAL | PK | 收藏 ID |
-| `user_id` | INTEGER | FK -> `users.id`, NOT NULL | 用户 ID |
-| `spot_id` | INTEGER | FK -> `spots.id`, NOT NULL | 景点 ID |
+| `user_id` | INTEGER | FK -> `users.id` ON DELETE CASCADE, NOT NULL | 用户 ID |
+| `spot_id` | INTEGER | FK -> `spots.id` ON DELETE CASCADE, NULL | 景点 ID（可选） |
+| `post_id` | INTEGER | FK -> `posts.id` ON DELETE CASCADE, NULL | 内容 ID（可选） |
+| `location_id` | INTEGER | FK -> `location.id` ON DELETE CASCADE, NULL | 地点 ID（可选） |
 | `created_at` | TIMESTAMP | NOT NULL | 创建时间 |
+
+约束:
+
+- `CHECK (favorites_single_target_check)`: 恰好一个 FK 非空
+  ```sql
+  (CASE WHEN post_id IS NOT NULL THEN 1 ELSE 0 END +
+   CASE WHEN spot_id IS NOT NULL THEN 1 ELSE 0 END +
+   CASE WHEN location_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+  ```
+- `UNIQUE INDEX favorites_user_spot_unique_idx (user_id, spot_id) WHERE spot_id IS NOT NULL`
+- `UNIQUE INDEX favorites_user_post_unique_idx (user_id, post_id) WHERE post_id IS NOT NULL`
+- `UNIQUE INDEX favorites_user_location_unique_idx (user_id, location_id) WHERE location_id IS NOT NULL`
 
 说明:
 
-- 收藏列表接口仅返回当前用户已收藏且 `content_status = approved` 的景点
+- 采用多列可空 FK + CHECK 约束实现多态收藏（spot / post / location）
+- 收藏列表接口仅返回当前用户已收藏且目标实体 `content_status = approved` 的记录
+- 删除目标实体时，关联的收藏记录级联删除
 
 ## 关系图
 
@@ -180,20 +212,25 @@ region
 location
   ├─> spots (location_id)
   ├─> posts (location_id)
-  └─> location (replaces_id)
+  ├─> location (replaces_id)
+  ├─> favorites (location_id)
+  └─> media (location_id)
 
 spots
   ├─> posts (spot_id)
-  └─> favorites (spot_id)
+  ├─> favorites (spot_id)
+  └─> media (spot_id)
 
 posts
   ├─> media (post_id)
-  └─> comments (post_id)
+  ├─> comments (post_id)
+  └─> favorites (post_id)
 ```
 
 ## 本次迁移说明
 
-- 新增 migration: [0002_comments_post_and_spot_image.sql](/d:/projects/viewwing-new/backend/drizzle/0002_comments_post_and_spot_image.sql)
-- `spots` 新增 `image_url`
-- `comments` 重建为 `post_id` 外键模型
-- 因当前处于开发阶段，不迁移旧评论数据
+- 新增 migration: [0002_polymorphic_favorites_media.sql](/d:/projects/viewwing-new/backend/drizzle/0002_polymorphic_favorites_media.sql)
+- `favorites` 表：`spot_id` 改为可空，新增 `post_id`、`location_id` 可空列，加 CHECK 约束确保恰好一列非空
+- `media` 表：`post_id` 改为可空，新增 `spot_id`、`location_id` 可空列，加 CHECK 约束确保恰好一列非空
+- 现有数据满足 CHECK 约束（`favorites` 行 `spot_id` 非空，`media` 行 `post_id` 非空）
+- 采用多列可空 FK + CHECK 约束方案，保留数据库级外键约束和级联删除能力

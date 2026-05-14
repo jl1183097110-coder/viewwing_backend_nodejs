@@ -8,7 +8,7 @@ import {
   createCommentSchema,
   editCommentSchema,
   getPostCommentsQuerySchema,
-} from "../utils/zodschemas.js";
+} from "../utils/apiSchemas.js";
 
 export async function createCommentService(
   userId: number,

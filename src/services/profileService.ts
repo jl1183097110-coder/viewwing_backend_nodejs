@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import {
   commentsTable,
@@ -8,7 +8,7 @@ import {
   spotsTable,
 } from "../db/schema.js";
 import { db } from "../drizzle.js";
-import { getMySubmissionsSchema } from "../utils/zodschemas.js";
+import { getMySubmissionsSchema } from "../utils/apiSchemas.js";
 
 export async function getMySubmissionsService(
   userId: number,
@@ -95,11 +95,11 @@ export async function getMySubmissionsService(
           url: mediaTable.url,
         })
         .from(mediaTable)
-        .where(inArray(mediaTable.postId, postIds))
+        .where(and(isNotNull(mediaTable.postId), inArray(mediaTable.postId, postIds)))
         .orderBy(mediaTable.postId, mediaTable.displayOrder);
 
       postCoverImageMap = mediaRows.reduce((map, media) => {
-        if (!map.has(media.post_id)) {
+        if (media.post_id != null && !map.has(media.post_id)) {
           map.set(media.post_id, media.url);
         }
         return map;

@@ -7,7 +7,7 @@
  */
 
 import bcrypt from "bcryptjs";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { ensureRuntimeEnv } from "./lib/runtimeEnv.js";
 import {
   locationsTable,
@@ -336,7 +336,7 @@ const upsertMedia = async (entry: (typeof media)[number]) => {
   const existingRows = await db
     .select({ id: mediaTable.id })
     .from(mediaTable)
-    .where(and(eq(mediaTable.postId, postId), eq(mediaTable.objectKey, objectKey)))
+    .where(and(isNotNull(mediaTable.postId), eq(mediaTable.postId, postId), eq(mediaTable.objectKey, objectKey)))
     .limit(1);
 
   if (existingRows[0]) {

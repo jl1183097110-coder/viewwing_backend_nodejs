@@ -1,5 +1,5 @@
 import { sendSuccessResponse } from "../utils/response.js";
-import { getMySubmissionsSchema } from "../utils/zodschemas.js";
+import { getMySubmissionsSchema } from "../utils/apiSchemas.js";
 import { getMySubmissionsService } from "../services/profileService.js";
 import { AppError } from "../utils/error.js";
 import { RequestHandler } from "express";

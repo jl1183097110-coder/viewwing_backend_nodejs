@@ -18,7 +18,7 @@ export class AppError extends Error {
         public status: number,
         public code: ErrorStatus,
         public message: string,
-        public details?: any,
+        public details?: unknown,
     ) {
         super(message);
         this.code = code;
@@ -27,6 +27,6 @@ export class AppError extends Error {
     }
 }
 
-export function isAppError(error: any): boolean {
+export function isAppError(error: unknown): error is AppError {
     return error instanceof AppError;
 }

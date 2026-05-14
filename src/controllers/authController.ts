@@ -5,7 +5,7 @@ import { getUserId } from "../middlewares/authorization.js";
 
 import { getUserProfileService, loginService, registerService, updateUserProfileService } from "../services/authService.js";
 
-import { loginSchema, registerSchema, updateProfileSchema } from "../utils/zodschemas.js";
+import { loginSchema, registerSchema, updateProfileSchema } from "../utils/apiSchemas.js";
 
 export const login: RequestHandler = async (req, res) => {
   const parsed = loginSchema.parse(req.body);

@@ -7,10 +7,9 @@ import { AppError } from "../utils/error.js";
 import {
   getPresignSchema,
   addMediaToPostSchema,
-  deleteMediaSchema,
-} from "../utils/zodschemas.js";
+} from "../utils/apiSchemas.js";
 import { db } from "../drizzle.js";
-import { mediaTable, postsTable } from "../db/schema.js";
+import { mediaTable, postsTable, spotsTable, locationsTable } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { logger } from "../middlewares/logger.js";
 
@@ -189,37 +188,101 @@ export async function getPresignService(
   };
 }
 
-export const addMediaToPostService = async (
-  userId: number,
-  userRole: string,
-  postId: number,
-  input: z.infer<typeof addMediaToPostSchema>,
-) => {
-  const postRows = await db
-    .select({
-      id: postsTable.id,
-      submittedBy: postsTable.submittedBy,
-    })
-    .from(postsTable)
-    .where(eq(postsTable.id, postId))
-    .limit(1);
+// ─── Polymorphic Media Owner Types ───────────────────────────────────────────
 
-  const post = postRows[0];
-  if (!post) {
-    logger.warn({ action: "media.add", userId, postId }, "add media failed: post not found");
-    throw new AppError(404, "NOT_FOUND", "Post not found");
+export type MediaOwnerType = "post" | "spot" | "location";
+
+export interface MediaOwner {
+  type: MediaOwnerType;
+  id: number;
+}
+
+// ─── Private Helper ──────────────────────────────────────────────────────────
+
+async function getOwnerSubmittedBy(owner: MediaOwner): Promise<number> {
+  if (owner.type === "post") {
+    const rows = await db
+      .select({ submittedBy: postsTable.submittedBy })
+      .from(postsTable)
+      .where(eq(postsTable.id, owner.id))
+      .limit(1);
+    if (!rows[0]) {
+      throw new AppError(404, "NOT_FOUND", "Post not found");
+    }
+    return rows[0].submittedBy;
   }
 
-  if (userRole !== "admin" && post.submittedBy !== userId) {
+  if (owner.type === "spot") {
+    const rows = await db
+      .select({ submittedBy: spotsTable.submittedBy })
+      .from(spotsTable)
+      .where(eq(spotsTable.id, owner.id))
+      .limit(1);
+    if (!rows[0]) {
+      throw new AppError(404, "NOT_FOUND", "Spot not found");
+    }
+    return rows[0].submittedBy;
+  }
+
+  // owner.type === "location"
+  const rows = await db
+    .select({ submittedBy: locationsTable.submittedBy })
+    .from(locationsTable)
+    .where(eq(locationsTable.id, owner.id))
+    .limit(1);
+  if (!rows[0]) {
+    throw new AppError(404, "NOT_FOUND", "Location not found");
+  }
+  return rows[0].submittedBy;
+}
+
+// ─── Generic Add Media to Owner ──────────────────────────────────────────────
+
+export const addMediaToOwnerService = async (
+  userId: number,
+  userRole: string,
+  owner: MediaOwner,
+  input: z.infer<typeof addMediaToPostSchema>,
+) => {
+  const submittedBy = await getOwnerSubmittedBy(owner);
+
+  if (userRole !== "admin" && submittedBy !== userId) {
     logger.warn(
-      { action: "media.add", userId, userRole, ownerId: post.submittedBy, postId },
-      "add media forbidden",
+      { action: "media.addToOwner", userId, userRole, ownerId: submittedBy, ownerType: owner.type, ownerId2: owner.id },
+      "add media to owner forbidden",
     );
     throw new AppError(403, "FORBIDDEN", "you are not the author of this content");
   }
 
+  assertObjectKeyForUser(userId, input.object_key);
+
+  const expectedUrl = buildPublicUrl(
+    getR2Config().publicBaseUrl,
+    input.object_key,
+  );
+
+  if (input.url !== expectedUrl) {
+    logger.warn(
+      { action: "media.addToOwner", userId, ownerType: owner.type, ownerId: owner.id, objectKey: input.object_key },
+      "add media to owner failed: url and object_key mismatch",
+    );
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "URL does not match object_key",
+    );
+  }
+
+  // Compute the FK column based on owner type
+  const fkColumn =
+    owner.type === "post"
+      ? "postId"
+      : owner.type === "spot"
+        ? "spotId"
+        : "locationId";
+
   const payload = {
-    postId,
+    [fkColumn]: owner.id,
     mediaType: input.media_type,
     url: input.url,
     objectKey: input.object_key,
@@ -232,28 +295,24 @@ export const addMediaToPostService = async (
     fileSize: BigInt(input.file_size),
   };
 
-  assertObjectKeyForUser(userId, input.object_key);
+  // Compute the returning FK field name (snake_case for response)
+  const fkResponseField =
+    owner.type === "post"
+      ? "post_id"
+      : owner.type === "spot"
+        ? "spot_id"
+        : "location_id";
 
-  const expectedUrl = buildPublicUrl(
-    getR2Config().publicBaseUrl,
-    input.object_key,
-  );
-
-  if (input.url !== expectedUrl) {
-    logger.warn(
-      { action: "media.add", userId, postId, objectKey: input.object_key },
-      "add media failed: url and object_key mismatch",
-    );
-    throw new AppError(
-      400,
-      "VALIDATION_ERROR",
-      "URL does not match object_key",
-    );
-  }
+  const fkTableColumn =
+    owner.type === "post"
+      ? mediaTable.postId
+      : owner.type === "spot"
+        ? mediaTable.spotId
+        : mediaTable.locationId;
 
   const result = await db.insert(mediaTable).values(payload).returning({
     id: mediaTable.id,
-    post_id: mediaTable.postId,
+    [fkResponseField]: fkTableColumn,
     media_type: mediaTable.mediaType,
     url: mediaTable.url,
     display_order: mediaTable.displayOrder,
@@ -261,8 +320,8 @@ export const addMediaToPostService = async (
 
   if (!result[0]) {
     logger.error(
-      { action: "media.add", userId, postId },
-      "add media failed: insert returned empty",
+      { action: "media.addToOwner", userId, ownerType: owner.type, ownerId: owner.id },
+      "add media to owner failed: insert returned empty",
     );
     throw new AppError(
       500,
@@ -272,104 +331,75 @@ export const addMediaToPostService = async (
   }
 
   logger.info(
-    { action: "media.add", userId, postId, mediaId: result[0].id },
-    "add media success",
+    { action: "media.addToOwner", userId, ownerType: owner.type, ownerId: owner.id, mediaId: result[0].id },
+    "add media to owner success",
   );
   return result[0];
 };
 
-export const deleteMediaService = async (
+// ─── Generic Delete Media from Owner ─────────────────────────────────────────
+
+export const deleteMediaFromOwnerService = async (
   userId: number,
   userRole: string,
-  data: z.infer<typeof deleteMediaSchema>,
+  owner: MediaOwner,
+  mediaId: number,
 ) => {
-  const postRoleId = await db
-    .select({ submitBy: postsTable.submittedBy })
-    .from(postsTable)
-    .where(eq(postsTable.id, data.post_id));
-
-  const mediaRow = await db
+  // Fetch the media row
+  const mediaRows = await db
     .select()
     .from(mediaTable)
-    .where(eq(mediaTable.id, data.media_id));
+    .where(eq(mediaTable.id, mediaId));
 
-  if (!mediaRow[0]) {
+  if (!mediaRows[0]) {
     logger.warn(
-      {
-        action: "media.delete",
-        userId,
-        postId: data.post_id,
-        mediaId: data.media_id,
-      },
-      "delete media failed: media not found",
+      { action: "media.deleteFromOwner", userId, ownerType: owner.type, ownerId: owner.id, mediaId },
+      "delete media from owner failed: media not found",
     );
-    throw new AppError(
-      404,
-      "NOT_FOUND",
-      "error occured, this content is not found",
-    );
+    throw new AppError(404, "NOT_FOUND", "Media not found");
   }
 
-  if (!postRoleId[0] || mediaRow[0].postId !== data.post_id) {
+  // Verify the media belongs to the specified owner
+  const mediaRow = mediaRows[0];
+  const fkValue =
+    owner.type === "post"
+      ? mediaRow.postId
+      : owner.type === "spot"
+        ? mediaRow.spotId
+        : mediaRow.locationId;
+
+  if (fkValue !== owner.id) {
     logger.warn(
-      {
-        action: "media.delete",
-        userId,
-        postId: data.post_id,
-        mediaId: data.media_id,
-      },
-      "delete media failed: post/media mismatch",
+      { action: "media.deleteFromOwner", userId, ownerType: owner.type, ownerId: owner.id, mediaId, actualFk: fkValue },
+      "delete media from owner failed: media does not belong to owner",
     );
-    throw new AppError(
-      404,
-      "NOT_FOUND",
-      "postId or mediaId has something wrong",
-    );
+    throw new AppError(404, "NOT_FOUND", "Media not found");
   }
 
-  if (userRole !== "admin" && postRoleId[0].submitBy !== userId) {
+  // Check ownership via getOwnerSubmittedBy
+  const submittedBy = await getOwnerSubmittedBy(owner);
+
+  if (userRole !== "admin" && submittedBy !== userId) {
     logger.warn(
-      {
-        action: "media.delete",
-        userId,
-        ownerId: postRoleId[0].submitBy,
-        userRole,
-        postId: data.post_id,
-        mediaId: data.media_id,
-      },
-      "delete media forbidden",
+      { action: "media.deleteFromOwner", userId, userRole, ownerId: submittedBy, ownerType: owner.type, mediaId },
+      "delete media from owner forbidden",
     );
-    throw new AppError(
-      403,
-      "FORBIDDEN",
-      "you are not the author of this content",
-    );
+    throw new AppError(403, "FORBIDDEN", "you are not the author of this content");
   }
 
   try {
-    await db.delete(mediaTable).where(eq(mediaTable.id, data.media_id));
+    await db.delete(mediaTable).where(eq(mediaTable.id, mediaId));
   } catch (err) {
     logger.error(
-      {
-        action: "media.delete",
-        userId,
-        postId: data.post_id,
-        mediaId: data.media_id,
-        err,
-      },
-      "delete media failed",
+      { action: "media.deleteFromOwner", userId, ownerType: owner.type, ownerId: owner.id, mediaId, err },
+      "delete media from owner failed",
     );
     throw new AppError(500, "DATABASE_ERROR", "failed to delete");
   }
 
   logger.info(
-    {
-      action: "media.delete",
-      userId,
-      postId: data.post_id,
-      mediaId: data.media_id,
-    },
-    "delete media success",
+    { action: "media.deleteFromOwner", userId, ownerType: owner.type, ownerId: owner.id, mediaId },
+    "delete media from owner success",
   );
   return { message: "delete success" };
 };

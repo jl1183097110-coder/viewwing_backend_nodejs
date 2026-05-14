@@ -6,12 +6,12 @@ import {
   spotsTable,
   usersTable,
 } from "../db/schema.js";
-import { and, desc, eq, inArray, sql, SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql, SQL } from "drizzle-orm";
 import {
   getPostsSchema,
   createPostSchema,
   updatePostSchema,
-} from "../utils/zodschemas.js";
+} from "../utils/apiSchemas.js";
 import { z } from "zod";
 import { AppError } from "../utils/error.js";
 import { logger } from "../middlewares/logger.js";
@@ -148,14 +148,15 @@ export const getPostsService = async (
         thumbnail_url: mediaTable.thumbnailUrl,
       })
       .from(mediaTable)
-      .where(inArray(mediaTable.postId, postIds))
+      .where(and(isNotNull(mediaTable.postId), inArray(mediaTable.postId, postIds)))
       .orderBy(mediaTable.displayOrder);
 
     mediaMap = mediaRows.reduce((map, media) => {
-      if (!map.has(media.post_id)) {
-        map.set(media.post_id, []);
+      const postId = media.post_id!;
+      if (!map.has(postId)) {
+        map.set(postId, []);
       }
-      map.get(media.post_id)!.push({
+      map.get(postId)!.push({
         media_type: media.media_type,
         url: media.url,
         thumbnail_url: media.thumbnail_url,
@@ -232,7 +233,7 @@ export const getPostsByIdService = async (post_id: number) => {
       display_order: mediaTable.displayOrder,
     })
     .from(mediaTable)
-    .where(eq(mediaTable.postId, post_id))
+    .where(and(isNotNull(mediaTable.postId), eq(mediaTable.postId, post_id)))
     .orderBy(mediaTable.displayOrder);
 
   const post = postRows[0];

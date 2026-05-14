@@ -1,5 +1,6 @@
 import {
   bigint,
+  check,
   doublePrecision,
   integer,
   index,
@@ -11,6 +12,7 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const userRole = pgEnum("user_role", ["user", "admin"]);
 
@@ -161,8 +163,11 @@ export const mediaTable = pgTable(
   {
     id: serial("id").primaryKey(),
     postId: integer("post_id")
-      .references(() => postsTable.id, { onDelete: "cascade" })
-      .notNull(),
+      .references(() => postsTable.id, { onDelete: "cascade" }),
+    spotId: integer("spot_id")
+      .references(() => spotsTable.id, { onDelete: "cascade" }),
+    locationId: integer("location_id")
+      .references(() => locationsTable.id, { onDelete: "cascade" }),
     objectKey: varchar("object_key", { length: 500 }).notNull(),
     mediaType: mediaType("media_type").notNull(),
     url: varchar({ length: 500 }).notNull(),
@@ -172,7 +177,23 @@ export const mediaTable = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("media_post_display_order_idx").on(table.postId, table.displayOrder),
+    check(
+      "media_single_owner_check",
+      sql`(
+        (CASE WHEN ${table.postId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.spotId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.locationId} IS NOT NULL THEN 1 ELSE 0 END)
+      ) = 1`,
+    ),
+    index("media_post_display_order_idx")
+      .on(table.postId, table.displayOrder)
+      .where(sql`${table.postId} IS NOT NULL`),
+    index("media_spot_display_order_idx")
+      .on(table.spotId, table.displayOrder)
+      .where(sql`${table.spotId} IS NOT NULL`),
+    index("media_location_display_order_idx")
+      .on(table.locationId, table.displayOrder)
+      .where(sql`${table.locationId} IS NOT NULL`),
   ],
 );
 
@@ -204,13 +225,33 @@ export const favoritesTable = pgTable(
     userId: integer("user_id")
       .references(() => usersTable.id, { onDelete: "cascade" })
       .notNull(),
+    postId: integer("post_id")
+      .references(() => postsTable.id, { onDelete: "cascade" }),
     spotId: integer("spot_id")
-      .references(() => spotsTable.id, { onDelete: "cascade" })
-      .notNull(),
+      .references(() => spotsTable.id, { onDelete: "cascade" }),
+    locationId: integer("location_id")
+      .references(() => locationsTable.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("favorites_user_spot_unique_idx").on(table.userId, table.spotId),
-    index("favorites_user_created_idx").on(table.userId, table.createdAt.desc()),
+    check(
+      "favorites_single_target_check",
+      sql`(
+        (CASE WHEN ${table.postId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.spotId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.locationId} IS NOT NULL THEN 1 ELSE 0 END)
+      ) = 1`,
+    ),
+    uniqueIndex("favorites_user_post_unique_idx")
+      .on(table.userId, table.postId)
+      .where(sql`${table.postId} IS NOT NULL`),
+    uniqueIndex("favorites_user_spot_unique_idx")
+      .on(table.userId, table.spotId)
+      .where(sql`${table.spotId} IS NOT NULL`),
+    uniqueIndex("favorites_user_location_unique_idx")
+      .on(table.userId, table.locationId)
+      .where(sql`${table.locationId} IS NOT NULL`),
+    index("favorites_user_created_idx")
+      .on(table.userId, table.createdAt.desc()),
   ],
 );

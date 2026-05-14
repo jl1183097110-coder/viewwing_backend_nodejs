@@ -1,4 +1,4 @@
-import { getPostsSchema, getPostByIdSchema, createPostSchema, updatePostSchema, deletePostSchema } from "../utils/zodschemas.js";
+import { getPostsSchema, getPostByIdSchema, createPostSchema, updatePostSchema, deletePostSchema } from "../utils/apiSchemas.js";
 import type { RequestHandler } from "express";
 import { sendSuccessResponse } from "../utils/response.js";
 import { getUserId, getUserRole } from "../middlewares/authorization.js";

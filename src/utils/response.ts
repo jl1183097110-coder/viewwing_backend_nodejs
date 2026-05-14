@@ -36,7 +36,7 @@ export function sendErrorResponse<T>(
   code: ErrorStatus,
   status: number,
   message: string,
-  details?: any,
+  details?: T,
 ) {
   const payload: ApiErrorResponse<T> = {
     success: false,
